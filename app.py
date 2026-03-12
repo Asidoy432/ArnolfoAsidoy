@@ -1,8 +1,9 @@
 from flask import Flask, jsonify, request, render_template_string, redirect, url_for
 import sqlite3
+import os
 
 app = Flask(__name__)
-DB = "students.db"
+DB = "/tmp/students.db"
 
 def get_db():
     conn = sqlite3.connect(DB)
@@ -180,6 +181,49 @@ def summary():
         "pass_rate": f"{round((passed / len(grades)) * 100, 1)}%"
     })
 
+init_db()
+
+if __name__ == '__main__':
+    app.run(debug=True)
+      <button type="submit">Update</button>
+    </form>
+    <br><a href="/students">Back to List</a>
+    """
+    return render_template_string(html, s=student)
+
+@app.route('/delete_student/<int:id>')
+def delete_student(id):
+    conn = get_db()
+    result = conn.execute("SELECT id FROM students WHERE id = ?", (id,)).fetchone()
+    if not result:
+        conn.close()
+        return jsonify({"error": "Student not found"}), 404
+    conn.execute("DELETE FROM students WHERE id = ?", (id,))
+    conn.commit()
+    conn.close()
+    return redirect(url_for('list_students'))
+
+@app.route('/summary')
+def summary():
+    conn = get_db()
+    rows = conn.execute("SELECT grade FROM students").fetchall()
+    conn.close()
+    if not rows:
+        return jsonify({"message": "No students found"}), 404
+    grades = [r["grade"] for r in rows]
+    passed = len([g for g in grades if g >= 75])
+    failed = len(grades) - passed
+    average = round(sum(grades) / len(grades), 2)
+    return jsonify({
+        "total_students": len(grades),
+        "average_grade": average,
+        "highest_grade": max(grades),
+        "lowest_grade": min(grades),
+        "passed": passed,
+        "failed": failed,
+        "pass_rate": f"{round((passed / len(grades)) * 100, 1)}%"
+    })
+
 if __name__ == '__main__':
     init_db()
     app.run(debug=True)
@@ -208,3 +252,4 @@ web: gunicorn app:app
 ## File 4 — `runtime.txt`
 ```
 python-3.11.0
+
